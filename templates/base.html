@@ -1,0 +1,30 @@
+<html lang="en">
+    <head>
+        <title>index</title>
+        <link rel="stylesheet" href="../static/style.css">
+    </head>
+
+    <body bgcolor="#e6ffee">
+        <div class="one">
+            <div class="two">
+                <h1>Меню</h1>
+                <ul>
+                    <li class="active"><a href="{{url_for('index')}}">Главное</a></li>
+                    <li><a href="{{url_for('display')}}">Мои данные</a></li>
+                    <li><a href="{{url_for('update')}}">Обновить данные</a></li>
+                    <li><a href="{{url_for('my_bets')}}">Мои ставки</a></li>
+                    <li><a href="{{url_for('points')}}">Статистика</a></li>
+                    <li><a href="{{url_for('matchs')}}">Календарь</a></li>
+                    <li><a href="{{url_for('bet')}}">Сделать прогноз</a></li>
+                    <li><a href="{{url_for('logout')}}">Выйти</a></li>
+          {% block admin %}
+          {% endblock %}
+                </ul>
+            </div>
+
+          {% block content %}
+          {% endblock %}
+
+        </div>
+    </body>
+</html>

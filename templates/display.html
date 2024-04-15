@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+        {% block content %}
+            <div class="content" align="center">
+                <div class="topbar">
+                    <h2>Welcome!! You are in Display Page!! </h2>
+                </div> </br>
+                <div class="contentbar">
+                    <h1>Your Details</h1> </br>
+                        <div class="border">
+                            <table class="worddark"></br></br></br></br>
+                                <tr>
+                                    <td>Логин:</td>
+                                    <td>{{ account['username'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Пароль:</td>
+                                    <td>{{ account['password'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Email:</td>
+                                    <td>{{ account['email'] }}</td>
+                                </tr>
+
+                            </table>
+                        </div>
+                </div>
+
+            </div>
+{% endblock %}

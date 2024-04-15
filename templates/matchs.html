@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+        {% block content %}
+            <div class="content" align="center">
+                <div class="topbar">
+                    <h2>Статистика </h2>
+                </div> </br>
+                <div class="contentbar">
+                    <h1>Предстоящие матчи</h1> </br>
+                    <table border="1" width="900" style="border-collapse:collapse;">
+                        <tr>
+                            {% for header in headers %}
+                            <th>{{header}}</th>
+                            {% endfor %}
+                        </tr>
+                        {% for row in tableData %}
+                        <tr>
+                            {% for cell in row %}
+                            <td>{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+{% endblock %}

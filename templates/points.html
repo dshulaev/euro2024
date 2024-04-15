@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+        {% block content %}
+            <div class="content" align="center">
+                <div class="topbar">
+                    <h2>Статистика </h2>
+                </div> </br>
+                <div class="contentbar">
+                    <h1>Ваша статистика</h1> </br>
+                        <div class="border">
+                            <table class="worddark"></br></br></br></br>
+                                <tr>
+                                    <td>Очки:</td>
+                                    <td>{{ points['points'] }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                </div>
+            </div>
+
+{% endblock %}

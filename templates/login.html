@@ -1,0 +1,23 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title> Login </title>
+        <link rel="stylesheet" href="../static/style.css">
+    </head>
+    <body>
+        <div class="logincontent" align="center">
+            <div class="logintop">
+                <h1>Вход</h1>
+            </div></br></br></br></br>
+            <div class="loginbottom">
+            <form action="{{ url_for('login')}}" method="post" autocomplete="off">
+            <div class="msg">{{ msg }}</div>
+            <input type="text" name="username" placeholder="Логин" class="textbox" id="username" required></br></br>
+            <input type="password" name="password" placeholder="Пароль" class="textbox" id="password" required></br></br></br>
+            <input type="submit" class="btn" value="Войти">
+            </form></br></br>
+            <p class="wordlight">Новый пользователь? <a class="wordlight" href="{{ url_for('register')}}">Зарегистрируйся здесь</a></p>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="content" align="center">
+                <div class="topbar">
+                    <h2> Введите ваши ставки </h2>
+                </div></br></br>
+                <div class="contentbar">
+                <h1> {{msg}}</h1>
+                    </br></br>
+                <form action="{{ url_for('bet') }}" method="post" autocomplete="off">
+
+                    <input type="hidden" name ="match_id" value="{{match_id}}" id="match_id">
+                    <input type="text" name="team1" placeholder="{{teams1}}" class="textbox" id="team1" >
+                    <input type="text" name="team2" placeholder="{{teams2}}" class="textbox" id="team2" ></br></br>
+
+                    <input type="submit" name = "submit_button" class="btn" value="Предыдущий матч"> <input type="submit" name = "submit_button" class="btn" value="Сделать ставку!"> <input type="submit" name = "submit_button" class="btn" value="Следующий матч">
+                </form>
+
+                </div>
+</div>
+{% endblock %}
