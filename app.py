@@ -21,6 +21,12 @@ mysql = MySQL(app)
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     msg = ''
+    difference = 0
+    start_time = datetime.now()
+    end_time = datetime(2024, 6, 14, 22, 0, 0)
+    difference = end_time - start_time
+    if difference:
+        msg = 'До чемпионата Европы по футболу осталось: ' + str(difference)
     if request.method == 'POST' and 'username' in request.form and 'password' in request.form:
         username = request.form['username']
         password = request.form['password']
@@ -29,16 +35,20 @@ def login():
             'SELECT * FROM account WHERE username = % s \
             AND password = % s', (username, password,))
         account = cursor.fetchone()
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute(
+            'SELECT date FROM matchs ORDER BY date WHERE date > %s ', (start_time,))
+        num = cursor.fetchone()
         if account:
             session['loggedin'] = True
             session['id'] = account['id']
             session['username'] = account['username']
-            session['num'] = 0
+            session['num'] = num - 1
             if  account['admin'] == 1:
                 session['admin'] = True
+                session['admin_num'] = 0
             else:
                 session['admin'] = False
-            msg = 'Logged in successfully !'
             return render_template('index.html', msg=msg)
         else:
             msg = 'Incorrect username / password!'
@@ -83,13 +93,15 @@ def register():
 
 @app.route("/index")
 def index():
+    msg = ''
     if 'loggedin' in session:
-        return render_template("index.html")
+        return render_template("index.html",  msg=msg)
     return redirect(url_for('login'))
 
 
 @app.route("/display")
 def display():
+    msg = ''
     if 'loggedin' in session:
         if session['admin'] == True:
             cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -132,6 +144,7 @@ def update():
 
 @app.route("/points")
 def points():
+    msg = ''
     if 'loggedin' in session:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('SELECT * FROM points WHERE Player_id = % s', (session['id'],))
@@ -141,6 +154,7 @@ def points():
 
 @app.route('/my_bets')
 def my_bets():
+    msg = ''
     current_day = date.today()
     cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cursor.execute('SELECT matchs.ID, matchs.date, matchs.team1, matchs.team2, bets.goals1, bets.goals2 from matchs LEFT JOIN bets ON matchs.ID = bets.match_id WHERE bets.player_id = % s ORDER BY matchs.ID', (session['id'],))
@@ -164,6 +178,7 @@ def my_bets():
 
 @app.route('/matchs')
 def matchs():
+    msg = ''
     current_day = date.today()
     cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cursor.execute('SELECT * from matchs')
@@ -273,6 +288,7 @@ def bet():
 
 @app.route("/admining")
 def admining():
+    msg = ''
     if 'loggedin' in session:
         msg = 'Ты лучший'
         matchs = []
@@ -298,55 +314,53 @@ def admining():
 
         if request.method == 'POST':
 
-            if request.form['submit_button'] == 'Сделать ставку!':
+            if request.form['submit_button'] == 'Внести прогноз':
                 form_team1 = request.form['team1']
                 form_team2 = request.form['team2']
                 form_match_id = request.form['match_id']
                 cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-                cursor.execute('SELECT match_id FROM bets WHERE player_id = %s and match_id = %s ',
-                               (session['id'], form_match_id))
-                player_bets = cursor.fetchone()
-                if player_bets:
-                    cursor.execute('UPDATE bets SET goals1 = %s, goals2 = %s WHERE player_id = %s and match_id = %s',
-                                   (form_team1, form_team2, session['id'], form_match_id))
+                cursor.execute('SELECT match_id FROM results WHERE  match_id = %s ', form_match_id, )
+                results = cursor.fetchone()
+                if results:
+                    cursor.execute('UPDATE results SET goals1 = %s, goals2 = %s WHERE match_id = %s',
+                                   (form_team1, form_team2, form_match_id))
                     mysql.connection.commit()
 
                 else:
-                    cursor.execute('INSERT INTO bets VALUES (% s, % s, %s, % s)',
-                                   (session['id'], form_match_id, form_team1, form_team2))
+                    cursor.execute('INSERT INTO results VALUES (% s, % s)', form_team1, form_team2)
                     mysql.connection.commit()
 
-                session["num"] += 1
-                if session["num"] == len(match_id) - 1:
-                    return render_template("bet_last.html", msg=msg, match_id=match_id[session["num"]],
-                                           teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
-                return render_template("bet.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]])
+                session["admin_num"] += 1
+                if session["admin_num"] == len(match_id) - 1:
+                    return render_template("admining_last.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                           teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
+                return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
             elif request.form['submit_button'] == 'Предыдущий матч':
-                if session["num"] == 0:
+                if session["admin_num"] == 0:
                     msg = "Это первый матч"
-                    return render_template("bet.html", msg=msg, match_id=match_id[session["num"]],
-                                           teams1=teams1[session["num"]], teams2=teams2[session["num"]])
-                session["num"] -= 1
-                return render_template("bet.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]])
+                    return render_template("admin.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                           teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
+                session["admin_num"] -= 1
+                return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
             elif request.form['submit_button'] == 'Следующий матч':
-                session["num"] += 1
-                if session["num"] == len(match_id) - 1:
-                    return render_template("bet_last.html", msg=msg, match_id=match_id[session["num"]],
-                                           teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
-                return render_template("bet.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]])
+                session["admin_num"] += 1
+                if session["admin_num"] == len(match_id) - 1:
+                    return render_template("admining_last.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                           teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
+                return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
         elif request.method == 'GET':
-            if session["num"] == 0:
-                return render_template("bet_first.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
+            if session["admin_num"] == 0:
+                return render_template("admining_first.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
             else:
-                return render_template("bet.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
+                return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
 
 
-return redirect(url_for('login'))
+    return redirect(url_for('login'))
 
 if __name__ == "__main__":
-    app.run(debug=True, host="localhost", port=int("5000"))
+    app.run(host="localhost", port=int("5000"))
