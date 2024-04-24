@@ -37,16 +37,21 @@ def login():
         account = cursor.fetchone()
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute(
-            'SELECT date FROM matchs ORDER BY date WHERE date > %s ', (start_time,))
+            'SELECT ID FROM matchs WHERE date > %s ORDER BY date  ', (start_time,))
         num = cursor.fetchone()
         if account:
             session['loggedin'] = True
             session['id'] = account['id']
             session['username'] = account['username']
-            session['num'] = num - 1
+            session['num'] = num['ID'] - 1
+            session['correct_score'] = 3
+            session['correct_difference'] = 2
+            session['correct_issue'] = 1
+            session['correct_champ_winner'] = 5
+
             if  account['admin'] == 1:
                 session['admin'] = True
-                session['admin_num'] = 0
+                session['admin_num'] = num['ID'] - 1
             else:
                 session['admin'] = False
             return render_template('index.html', msg=msg)
@@ -147,9 +152,27 @@ def points():
     msg = ''
     if 'loggedin' in session:
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM points WHERE Player_id = % s', (session['id'],))
-        points = cursor.fetchone()
-        return render_template("points.html", points=points)
+        cursor.execute('select SUM(points) from points WHERE player_id = %s GROUP BY player_id', (session['id'],))
+        result = cursor.fetchone()
+        points = int(result['SUM(points)'])
+        cursor.execute(
+            'SELECT account.username, SUM(points.points) AS points from account LEFT JOIN points ON account.ID = points.player_id GROUP BY account.username ORDER BY points DESC')
+        headers = ('№', 'Игрок', 'Очки')
+        tableDatalist = []
+        tableDatalistFull = []
+        tableData = cursor.fetchall()
+
+        for i in tableData:
+            tableDatalist.append(i)
+        for i in tableDatalist:
+            tableDatalistFull.append(tuple(i.values()))
+        tableData = tuple(tableDatalistFull)
+
+        return render_template(
+            '/points',
+            headers=headers,
+            tableData=tableData
+        )
     return redirect(url_for('login'))
 
 @app.route('/my_bets')
@@ -202,6 +225,7 @@ def matchs():
 
 @app.route("/bet", methods=['GET', 'POST'])
 def bet():
+    msg = ''
     def get_my_bet ():
         msg = ''
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -258,7 +282,7 @@ def bet():
             msg = get_my_bet()
             if session["num"] == len(match_id) - 1:
                 return render_template("bet_last.html", msg=msg, match_id=match_id[session["num"]],
-                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
+                                       teams1=teams1[session["num"]], teams2=teams2[session["num"]])
             return render_template("bet.html", msg=msg, match_id=match_id[session["num"]], teams1=teams1[session["num"]], teams2=teams2[session["num"]])
         elif request.form['submit_button'] == 'Предыдущий матч':
             if session["num"] == 0:
@@ -281,16 +305,51 @@ def bet():
         msg = get_my_bet()
         if session["num"] == 0:
             return render_template("bet_first.html", msg=msg, match_id=match_id[session["num"]],
-                                   teams1=teams1[session["num"]], teams2=teams2[session["num"]], )
+                                   teams1=teams1[session["num"]], teams2=teams2[session["num"]] )
         else:
-            return render_template("bet.html", msg=msg, match_id = match_id[session["num"]], teams1 = teams1[session["num"]], teams2 = teams2[session["num"]], )
+            session["num"] = 0
+            return render_template("bet.html", msg=msg, match_id = match_id[session["num"]], teams1 = teams1[session["num"]], teams2 = teams2[session["num"]] )
 
 
-@app.route("/admining")
+@app.route("/admining", methods=['GET', 'POST'])
 def admining():
+
     msg = ''
+    def points_count(match_id):
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT match_id, goals1, goals2 FROM results WHERE match_id = %s', (match_id,))
+        results = cursor.fetchone()
+        cursor.execute('SELECT player_id, match_id, goals1, goals2 FROM bets WHERE match_id = %s', (match_id,))
+        bets = cursor.fetchall()
+        for i in bets:
+            cursor.execute('SELECT player_id FROM points WHERE match_id = %s and player_id = %s', (match_id, i['player_id']))
+            check_points = cursor.fetchone()
+            if not check_points:
+                if i['goals1'] == results['goals1'] and i['goals2'] == results['goals2']:
+                    cursor.execute('INSERT into points Values(%s, %s, %s)', (i['player_id'], match_id, session['correct_score']))
+                    mysql.connection.commit()
+                elif (i['goals1'] - results['goals1']) == (i['goals2'] - results['goals2']):
+                    cursor.execute('INSERT into points Values(%s, %s, %s)',
+                                   (i['player_id'], match_id, session['correct_difference']))
+                    mysql.connection.commit()
+                elif ((i['goals1'] > i['goals2']) and (results['goals1'] > results['goals2'])) or ((i['goals1'] < i['goals2']) and (results['goals1'] < results['goals2'])):
+                    cursor.execute('INSERT into points Values(%s, %s, %s)',
+                                   (i['player_id'], match_id, session['correct_issue']))
+                    mysql.connection.commit()
+            else:
+                if i['goals1'] == results['goals1'] and i['goals2'] == results['goals2']:
+                    cursor.execute('Update points set points = %s WHERE player_id = %s and match_id = %s' , (session['correct_score'], i['player_id'], match_id ))
+                    mysql.connection.commit()
+                elif (i['goals1'] - results['goals1']) == (i['goals2'] - results['goals2']):
+                    cursor.execute('Update points set points = %s WHERE player_id = %s and match_id = %s', (session['correct_difference'], i['player_id'], match_id ))
+                    mysql.connection.commit()
+                elif ((i['goals1'] > i['goals2']) and (results['goals1'] > results['goals2'])) or ((i['goals1'] < i['goals2']) and (results['goals1'] < results['goals2'])):
+                    cursor.execute('Update points set points = %s WHERE player_id = %s and match_id = %s', (session['correct_issue'], i['player_id'], match_id ))
+                    mysql.connection.commit()
+        return bets
+
     if 'loggedin' in session:
-        msg = 'Ты лучший'
+        msg = 'Занесите результат матча: '
         matchs = []
         teams1 = []
         teams2 = []
@@ -314,12 +373,12 @@ def admining():
 
         if request.method == 'POST':
 
-            if request.form['submit_button'] == 'Внести прогноз':
+            if request.form['submit_button'] == 'Внести результат':
                 form_team1 = request.form['team1']
                 form_team2 = request.form['team2']
                 form_match_id = request.form['match_id']
                 cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-                cursor.execute('SELECT match_id FROM results WHERE  match_id = %s ', form_match_id, )
+                cursor.execute('SELECT match_id FROM results WHERE  match_id = %s ', (form_match_id, ))
                 results = cursor.fetchone()
                 if results:
                     cursor.execute('UPDATE results SET goals1 = %s, goals2 = %s WHERE match_id = %s',
@@ -327,10 +386,13 @@ def admining():
                     mysql.connection.commit()
 
                 else:
-                    cursor.execute('INSERT INTO results VALUES (% s, % s)', form_team1, form_team2)
+                    cursor.execute('INSERT INTO results VALUES (% s, % s, % s)',(form_match_id, form_team1, form_team2))
                     mysql.connection.commit()
+                points_count(form_match_id)
 
-                session["admin_num"] += 1
+
+                if session["admin_num"] < len(match_id) - 1:
+                    session["admin_num"] += 1
                 if session["admin_num"] == len(match_id) - 1:
                     return render_template("admining_last.html", msg=msg, match_id=match_id[session["admin_num"]],
                                            teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
@@ -339,11 +401,15 @@ def admining():
             elif request.form['submit_button'] == 'Предыдущий матч':
                 if session["admin_num"] == 0:
                     msg = "Это первый матч"
-                    return render_template("admin.html", msg=msg, match_id=match_id[session["admin_num"]],
+                    return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
                                            teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
                 session["admin_num"] -= 1
-                return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                if session["admin_num"] == 0:
+                    return render_template("admining_first.html", msg=msg, match_id=match_id[session["admin_num"]],
                                        teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
+                else:
+                    return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
+                                           teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
             elif request.form['submit_button'] == 'Следующий матч':
                 session["admin_num"] += 1
                 if session["admin_num"] == len(match_id) - 1:
@@ -351,16 +417,18 @@ def admining():
                                            teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
                 return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
                                        teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
+
         elif request.method == 'GET':
             if session["admin_num"] == 0:
                 return render_template("admining_first.html", msg=msg, match_id=match_id[session["admin_num"]],
-                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
             else:
                 return render_template("admining.html", msg=msg, match_id=match_id[session["admin_num"]],
-                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]], )
+                                       teams1=teams1[session["admin_num"]], teams2=teams2[session["admin_num"]])
 
 
     return redirect(url_for('login'))
 
+
 if __name__ == "__main__":
-    app.run(host="localhost", port=int("5000"))
+    app.run(host="localhost", port=int("5000"), debug=True, use_reloader=False)
