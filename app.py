@@ -154,9 +154,9 @@ def points():
         cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute('select SUM(points) from points WHERE player_id = %s GROUP BY player_id', (session['id'],))
         result = cursor.fetchone()
-        points = int(result['SUM(points)'])
+        #points = int(result['SUM(points)'])
         cursor.execute(
-            'SELECT account.username, SUM(points.points) AS points from account LEFT JOIN points ON account.ID = points.player_id GROUP BY account.username ORDER BY points DESC')
+            'select  row_number() over (Order by player_id desc), account.username, SUM(points) from points left join account on points.player_id = account.id group by player_id')
         headers = ('№', 'Игрок', 'Очки')
         tableDatalist = []
         tableDatalistFull = []
@@ -169,7 +169,7 @@ def points():
         tableData = tuple(tableDatalistFull)
 
         return render_template(
-            '/points',
+            '/points.html',
             headers=headers,
             tableData=tableData
         )
